@@ -35,7 +35,7 @@ let MonobankJarService = class MonobankJarService {
             return;
         this.isProcessing = true;
         const now = Math.floor(Date.now() / 1000);
-        const since = now - 86400;
+        const since = now - 31 * 86400;
         const url = `https://api.monobank.ua/personal/statement/${this.jarId}/${since}/${now}`;
         try {
             const res = await axios_1.default.get(url, {
@@ -45,6 +45,19 @@ let MonobankJarService = class MonobankJarService {
             const newTxs = this.state.lastTxnId
                 ? this.skipUntilLastId(transactions, this.state.lastTxnId)
                 : transactions;
+            const currentMonth = new Date().getMonth();
+            const nowDate = new Date();
+            const startOfWeek = new Date(nowDate);
+            startOfWeek.setDate(nowDate.getDate() - nowDate.getDay());
+            const startOfLastWeek = new Date(startOfWeek);
+            startOfLastWeek.setDate(startOfWeek.getDate() - 7);
+            const sumBy = (filterFn) => transactions.filter(tx => tx.amount > 0 && filterFn(tx)).reduce((sum, tx) => sum + tx.amount, 0) / 100;
+            const totalMonth = sumBy(tx => new Date(tx.time * 1000).getMonth() === currentMonth);
+            const totalWeek = sumBy(tx => new Date(tx.time * 1000) >= startOfWeek);
+            const totalLastWeek = sumBy(tx => {
+                const txDate = new Date(tx.time * 1000);
+                return txDate >= startOfLastWeek && txDate < startOfWeek;
+            });
             for (const tx of newTxs) {
                 if (tx.amount > 0) {
                     const message = [
@@ -53,6 +66,10 @@ let MonobankJarService = class MonobankJarService {
                         `💰 Сума: ${tx.amount / 100} ₴`,
                         `🕒 Час: ${new Date(tx.time * 1000).toLocaleString('uk-UA')}`,
                         tx.comment ? `✍️ Коментар: ${tx.comment}` : '',
+                        '',
+                        `📅 За місяць: ${totalMonth.toFixed(2)} ₴`,
+                        `📆 За цей тиждень: ${totalWeek.toFixed(2)} ₴`,
+                        `📊 За минулий тиждень: ${totalLastWeek.toFixed(2)} ₴`,
                     ]
                         .filter(Boolean)
                         .join('\n');

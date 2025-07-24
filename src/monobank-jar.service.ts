@@ -23,7 +23,7 @@ export class MonobankJarService implements OnModuleInit {
   }
 
   startChecking() {
-    setInterval(() => this.checkJarTransactions(), 60000); // кожні 60 секунд
+    setInterval(() => this.checkJarTransactions(), 60000); // кожні 60 сек
   }
 
   private async checkJarTransactions() {
@@ -31,7 +31,7 @@ export class MonobankJarService implements OnModuleInit {
     this.isProcessing = true;
 
     const now = Math.floor(Date.now() / 1000);
-    const since = now - 86400; 
+    const since = now - 31 * 86400; // останні 31 день
     const url = `https://api.monobank.ua/personal/statement/${this.jarId}/${since}/${now}`;
 
     try {
@@ -39,11 +39,28 @@ export class MonobankJarService implements OnModuleInit {
         headers: { 'X-Token': this.token },
       });
 
-      const transactions = (res.data as any[]).reverse(); // від старих до нових
+      const transactions = (res.data as any[]).reverse();
 
       const newTxs = this.state.lastTxnId
         ? this.skipUntilLastId(transactions, this.state.lastTxnId)
         : transactions;
+
+      const currentMonth = new Date().getMonth();
+      const nowDate = new Date();
+      const startOfWeek = new Date(nowDate);
+      startOfWeek.setDate(nowDate.getDate() - nowDate.getDay()); // неділя
+      const startOfLastWeek = new Date(startOfWeek);
+      startOfLastWeek.setDate(startOfWeek.getDate() - 7);
+
+      const sumBy = (filterFn: (tx: any) => boolean) =>
+        transactions.filter(tx => tx.amount > 0 && filterFn(tx)).reduce((sum, tx) => sum + tx.amount, 0) / 100;
+
+      const totalMonth = sumBy(tx => new Date(tx.time * 1000).getMonth() === currentMonth);
+      const totalWeek = sumBy(tx => new Date(tx.time * 1000) >= startOfWeek);
+      const totalLastWeek = sumBy(tx => {
+        const txDate = new Date(tx.time * 1000);
+        return txDate >= startOfLastWeek && txDate < startOfWeek;
+      });
 
       for (const tx of newTxs) {
         if (tx.amount > 0) {
@@ -53,6 +70,10 @@ export class MonobankJarService implements OnModuleInit {
             `💰 Сума: ${tx.amount / 100} ₴`,
             `🕒 Час: ${new Date(tx.time * 1000).toLocaleString('uk-UA')}`,
             tx.comment ? `✍️ Коментар: ${tx.comment}` : '',
+            '',
+            `📅 За місяць: ${totalMonth.toFixed(2)} ₴`,
+            `📆 За цей тиждень: ${totalWeek.toFixed(2)} ₴`,
+            `📊 За минулий тиждень: ${totalLastWeek.toFixed(2)} ₴`,
           ]
             .filter(Boolean)
             .join('\n');
