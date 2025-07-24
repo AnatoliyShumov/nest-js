@@ -35,7 +35,7 @@ let MonobankJarService = class MonobankJarService {
             return;
         this.isProcessing = true;
         const now = Math.floor(Date.now() / 1000);
-        const since = now - 3600;
+        const since = now - 86400;
         const url = `https://api.monobank.ua/personal/statement/${this.jarId}/${since}/${now}`;
         try {
             const res = await axios_1.default.get(url, {

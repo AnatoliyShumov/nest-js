@@ -31,7 +31,7 @@ export class MonobankJarService implements OnModuleInit {
     this.isProcessing = true;
 
     const now = Math.floor(Date.now() / 1000);
-    const since = now - 3600; // остання година
+    const since = now - 86400; 
     const url = `https://api.monobank.ua/personal/statement/${this.jarId}/${since}/${now}`;
 
     try {
