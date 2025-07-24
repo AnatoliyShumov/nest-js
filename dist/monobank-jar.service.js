@@ -13,48 +13,101 @@ exports.MonobankJarService = void 0;
 const common_1 = require("@nestjs/common");
 const axios_1 = require("axios");
 const telegram_service_1 = require("./telegram.service");
+const fs = require("fs");
+const path = require("path");
 let MonobankJarService = class MonobankJarService {
     constructor(telegram) {
         this.telegram = telegram;
         this.token = process.env.MONOBANK_TOKEN;
         this.jarId = process.env.MONOBANK_JAR_ID;
-        this.lastTxnTime = Math.floor(Date.now() / 1000) - 86400;
+        this.stateFilePath = path.resolve(__dirname, '..', 'last-state.json');
+        this.state = this.loadState();
+        this.isProcessing = false;
+    }
+    onModuleInit() {
+        this.startChecking();
     }
     startChecking() {
         setInterval(() => this.checkJarTransactions(), 60000);
     }
     async checkJarTransactions() {
+        if (this.isProcessing)
+            return;
+        this.isProcessing = true;
         const now = Math.floor(Date.now() / 1000);
-        const url = `https://api.monobank.ua/personal/statement/${this.jarId}/${this.lastTxnTime}/${now}`;
+        const since = now - 3600;
+        const url = `https://api.monobank.ua/personal/statement/${this.jarId}/${since}/${now}`;
         try {
             const res = await axios_1.default.get(url, {
                 headers: { 'X-Token': this.token },
             });
-            const transactions = res.data;
-            for (const tx of transactions) {
+            const transactions = res.data.reverse();
+            const newTxs = this.state.lastTxnId
+                ? this.skipUntilLastId(transactions, this.state.lastTxnId)
+                : transactions;
+            for (const tx of newTxs) {
                 if (tx.amount > 0) {
-                    const sender = this.extractSender(tx.description);
                     const message = [
                         '💸 *Поповнення банки*',
-                        sender ? `👤 Від: ${sender}` : '',
+                        tx.description ? `👤 ${tx.description}` : '',
                         `💰 Сума: ${tx.amount / 100} ₴`,
                         `🕒 Час: ${new Date(tx.time * 1000).toLocaleString('uk-UA')}`,
                         tx.comment ? `✍️ Коментар: ${tx.comment}` : '',
                     ]
                         .filter(Boolean)
                         .join('\n');
-                    await this.telegram.sendMessage(message);
+                    await this.sendWithRetry(message);
                 }
             }
-            this.lastTxnTime = now;
+            if (newTxs.length > 0) {
+                this.state.lastTxnId = newTxs[newTxs.length - 1].id;
+                this.saveState();
+            }
         }
         catch (err) {
             console.error('Монобанк помилка:', err.response?.data || err.message);
         }
+        finally {
+            this.isProcessing = false;
+        }
     }
-    extractSender(description) {
-        const match = description?.match(/^Від: (.+)$/);
-        return match ? match[1] : null;
+    skipUntilLastId(transactions, lastId) {
+        const index = transactions.findIndex(tx => tx.id === lastId);
+        return index >= 0 ? transactions.slice(index + 1) : transactions;
+    }
+    async sendWithRetry(message) {
+        try {
+            await this.telegram.sendMessage(message);
+        }
+        catch (err) {
+            const error = err.response?.data;
+            if (error?.error_code === 429 && error.parameters?.retry_after) {
+                const delaySec = error.parameters.retry_after;
+                console.warn(`⏳ Rate limit Telegram. Чекаємо ${delaySec} сек...`);
+                await new Promise(res => setTimeout(res, delaySec * 1000));
+                await this.telegram.sendMessage(message);
+            }
+            else {
+                console.error('❌ Telegram помилка:', error || err.message);
+            }
+        }
+    }
+    loadState() {
+        try {
+            const content = fs.readFileSync(this.stateFilePath, 'utf-8');
+            return JSON.parse(content);
+        }
+        catch {
+            return { lastTxnId: null };
+        }
+    }
+    saveState() {
+        try {
+            fs.writeFileSync(this.stateFilePath, JSON.stringify(this.state, null, 2), 'utf-8');
+        }
+        catch (err) {
+            console.error('❌ Не вдалося зберегти lastTxnId:', err.message);
+        }
     }
 };
 exports.MonobankJarService = MonobankJarService;

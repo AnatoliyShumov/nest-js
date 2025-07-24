@@ -1,11 +1,18 @@
+import { OnModuleInit } from '@nestjs/common';
 import { TelegramService } from './telegram.service';
-export declare class MonobankJarService {
+export declare class MonobankJarService implements OnModuleInit {
     private readonly telegram;
     private token;
     private jarId;
-    private lastTxnTime;
+    private readonly stateFilePath;
+    private state;
+    private isProcessing;
     constructor(telegram: TelegramService);
+    onModuleInit(): void;
     startChecking(): void;
     private checkJarTransactions;
-    private extractSender;
+    private skipUntilLastId;
+    private sendWithRetry;
+    private loadState;
+    private saveState;
 }
