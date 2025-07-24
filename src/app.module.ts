@@ -1,10 +1,9 @@
 import { Module } from '@nestjs/common';
-import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { TelegramService } from './telegram.service';
+import { MonobankJarService } from './monobank-jar.service';
 
 @Module({
-  imports: [],
-  controllers: [AppController],
-  providers: [AppService],
+  providers: [AppService, TelegramService, MonobankJarService],
 })
 export class AppModule {}

@@ -1,14 +1,11 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
+import { MonobankJarService } from './monobank-jar.service';
 
 @Injectable()
 export class AppService implements OnModuleInit {
-  onModuleInit() {
-    setInterval(() => {
-      console.log('Hello world');
-    }, 5000);
-  }
+  constructor(private readonly monoService: MonobankJarService) {}
 
-  getHello(): string {
-    return 'Hello World!';
+  onModuleInit() {
+    this.monoService.startChecking();
   }
 }
