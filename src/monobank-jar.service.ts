@@ -48,7 +48,11 @@ export class MonobankJarService implements OnModuleInit {
       const currentMonth = new Date().getMonth();
       const nowDate = new Date();
       const startOfWeek = new Date(nowDate);
-      startOfWeek.setDate(nowDate.getDate() - nowDate.getDay()); // неділя
+      // Понеділок як початок тижня (0=неділя, 1=понеділок, ..., 6=субота)
+      const dayOfWeek = nowDate.getDay();
+      const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+      startOfWeek.setDate(nowDate.getDate() - daysToMonday);
+      startOfWeek.setHours(0, 0, 0, 0); // початок дня
       const startOfLastWeek = new Date(startOfWeek);
       startOfLastWeek.setDate(startOfWeek.getDate() - 7);
 
