@@ -95,6 +95,8 @@ let MonobankJarService = class MonobankJarService {
                     messageLines.push(`📅 За місяць: ${totalMonth.toFixed(2)} ₴`);
                     messageLines.push(`📆 За цей тиждень: ${totalWeek.toFixed(2)} ₴`);
                     messageLines.push(`📊 За минулий тиждень: ${totalLastWeek.toFixed(2)} ₴`);
+                    const topDonors = this.generateTopDonors();
+                    messageLines.push(...topDonors);
                     const message = messageLines.filter(Boolean).join('\n');
                     await this.sendWithRetry(message);
                     this.state.lastTxnId = tx.id;
@@ -112,6 +114,39 @@ let MonobankJarService = class MonobankJarService {
     skipUntilLastId(transactions, lastId) {
         const index = transactions.findIndex(tx => tx.id === lastId);
         return index >= 0 ? transactions.slice(index + 1) : transactions;
+    }
+    generateTopDonors() {
+        const lines = [];
+        const donorsData = Object.entries(this.state.donors).map(([name, txs]) => ({
+            name,
+            total: txs.reduce((sum, t) => sum + t.amount, 0),
+            count: txs.length,
+        }));
+        if (donorsData.length === 0) {
+            return lines;
+        }
+        const topByAmount = [...donorsData]
+            .sort((a, b) => b.total - a.total)
+            .slice(0, 10);
+        lines.push('');
+        lines.push('🏆 *ТОП-10 ДОНАТЕРІВ ЗА СУМОЮ:*');
+        topByAmount.forEach((donor, index) => {
+            const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}.`;
+            lines.push(`${medal} ${donor.name} - ${donor.total.toFixed(2)} ₴`);
+        });
+        const topByCount = [...donorsData]
+            .filter(d => d.count > 1)
+            .sort((a, b) => b.count - a.count)
+            .slice(0, 10);
+        if (topByCount.length > 0) {
+            lines.push('');
+            lines.push('🎯 *ТОП-10 ЗА КІЛЬКІСТЮ ДОНАТІВ:*');
+            topByCount.forEach((donor, index) => {
+                const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}.`;
+                lines.push(`${medal} ${donor.name} - ${donor.count} донатів (${donor.total.toFixed(2)} ₴)`);
+            });
+        }
+        return lines;
     }
     async sendWithRetry(message) {
         try {

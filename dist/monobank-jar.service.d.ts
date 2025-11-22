@@ -12,6 +12,7 @@ export declare class MonobankJarService implements OnModuleInit {
     startChecking(): void;
     private checkJarTransactions;
     private skipUntilLastId;
+    private generateTopDonors;
     private sendWithRetry;
     private loadState;
     private saveState;
