@@ -78,6 +78,7 @@ let MonobankJarService = class MonobankJarService {
                         '💸 *Поповнення банки*',
                         tx.description ? `👤 ${tx.description}` : '',
                         `💰 Сума: ${tx.amount / 100} ₴`,
+                        `💎 Всього задонатив: ${donorTotal.toFixed(2)} ₴`,
                         `🕒 Час: ${new Date(tx.time * 1000).toLocaleString('uk-UA')}`,
                         tx.comment ? `✍️ Коментар: ${tx.comment}` : '',
                     ];
@@ -85,7 +86,6 @@ let MonobankJarService = class MonobankJarService {
                         messageLines.push('');
                         messageLines.push(`🌟 *Повторний донатер!*`);
                         messageLines.push(`🔢 Кількість донатів: ${donorCount}`);
-                        messageLines.push(`💎 Всього задонатив: ${donorTotal.toFixed(2)} ₴`);
                         messageLines.push('📋 Історія донатів:');
                         donorTxs.forEach((t, index) => {
                             messageLines.push(`  ${index + 1}. ${t.amount.toFixed(2)} ₴ - ${t.date}`);
