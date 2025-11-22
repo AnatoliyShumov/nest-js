@@ -1,5 +1,5 @@
 {
-  "lastTxnId": "HtgYA6zYjDM5tH8oYXb2DCmtQYyePWnl2WFruoSenA",
+  "lastTxnId": "flJsKk-QAbaTEqZI8DjLOLUcggwage3MXiKjAPsIVQ",
   "donors": {
     "Від: Дмитро Кузовов": [
       {
@@ -151,6 +151,10 @@
       {
         "amount": 0.1,
         "date": "22.11.2025, 02:14:53"
+      },
+      {
+        "amount": 0.1,
+        "date": "22.11.2025, 02:23:52"
       }
     ],
     "Від: Ярослав Балькін": [

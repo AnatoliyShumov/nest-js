@@ -101,7 +101,7 @@ export class MonobankJarService implements OnModuleInit {
           // Додаємо інформацію про повторні донати
           if (donorCount >= 2) {
             messageLines.push('');
-            messageLines.push(`🌟 *Повторний донатер!*`);
+            messageLines.push(`🌟 *Повторний донатер: ${donorName}*`);
             messageLines.push(`🔢 Кількість донатів: ${donorCount}`);
             messageLines.push('📋 Історія донатів:');
             donorTxs.forEach((t, index) => {
