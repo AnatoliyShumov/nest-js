@@ -2,7 +2,9 @@
   "name": "monobank-jar-statement-bot",
   "version": "1.0.0",
   "scripts": {
-    "start": "nest start"
+    "build": "nest build",
+    "start": "nest start",
+    "start:dev": "nest start --watch"
   },
   "dependencies": {
     "@nestjs/common": "^10.0.0",

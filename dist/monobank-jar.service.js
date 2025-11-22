@@ -48,7 +48,10 @@ let MonobankJarService = class MonobankJarService {
             const currentMonth = new Date().getMonth();
             const nowDate = new Date();
             const startOfWeek = new Date(nowDate);
-            startOfWeek.setDate(nowDate.getDate() - nowDate.getDay());
+            const dayOfWeek = nowDate.getDay();
+            const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+            startOfWeek.setDate(nowDate.getDate() - daysToMonday);
+            startOfWeek.setHours(0, 0, 0, 0);
             const startOfLastWeek = new Date(startOfWeek);
             startOfLastWeek.setDate(startOfWeek.getDate() - 7);
             const sumBy = (filterFn) => transactions.filter(tx => tx.amount > 0 && filterFn(tx)).reduce((sum, tx) => sum + tx.amount, 0) / 100;
@@ -60,25 +63,43 @@ let MonobankJarService = class MonobankJarService {
             });
             for (const tx of newTxs) {
                 if (tx.amount > 0) {
-                    const message = [
+                    const donorName = tx.description || 'Анонім';
+                    if (!this.state.donors[donorName]) {
+                        this.state.donors[donorName] = [];
+                    }
+                    this.state.donors[donorName].push({
+                        amount: tx.amount / 100,
+                        date: new Date(tx.time * 1000).toLocaleString('uk-UA'),
+                    });
+                    const donorTxs = this.state.donors[donorName];
+                    const donorCount = donorTxs.length;
+                    const donorTotal = donorTxs.reduce((sum, t) => sum + t.amount, 0);
+                    const messageLines = [
                         '💸 *Поповнення банки*',
                         tx.description ? `👤 ${tx.description}` : '',
                         `💰 Сума: ${tx.amount / 100} ₴`,
                         `🕒 Час: ${new Date(tx.time * 1000).toLocaleString('uk-UA')}`,
                         tx.comment ? `✍️ Коментар: ${tx.comment}` : '',
-                        '',
-                        `📅 За місяць: ${totalMonth.toFixed(2)} ₴`,
-                        `📆 За цей тиждень: ${totalWeek.toFixed(2)} ₴`,
-                        `📊 За минулий тиждень: ${totalLastWeek.toFixed(2)} ₴`,
-                    ]
-                        .filter(Boolean)
-                        .join('\n');
+                    ];
+                    if (donorCount >= 2) {
+                        messageLines.push('');
+                        messageLines.push(`🌟 *Повторний донатер!*`);
+                        messageLines.push(`🔢 Кількість донатів: ${donorCount}`);
+                        messageLines.push(`💎 Всього задонатив: ${donorTotal.toFixed(2)} ₴`);
+                        messageLines.push('📋 Історія донатів:');
+                        donorTxs.forEach((t, index) => {
+                            messageLines.push(`  ${index + 1}. ${t.amount.toFixed(2)} ₴ - ${t.date}`);
+                        });
+                    }
+                    messageLines.push('');
+                    messageLines.push(`📅 За місяць: ${totalMonth.toFixed(2)} ₴`);
+                    messageLines.push(`📆 За цей тиждень: ${totalWeek.toFixed(2)} ₴`);
+                    messageLines.push(`📊 За минулий тиждень: ${totalLastWeek.toFixed(2)} ₴`);
+                    const message = messageLines.filter(Boolean).join('\n');
                     await this.sendWithRetry(message);
+                    this.state.lastTxnId = tx.id;
+                    this.saveState();
                 }
-            }
-            if (newTxs.length > 0) {
-                this.state.lastTxnId = newTxs[newTxs.length - 1].id;
-                this.saveState();
             }
         }
         catch (err) {
@@ -112,10 +133,14 @@ let MonobankJarService = class MonobankJarService {
     loadState() {
         try {
             const content = fs.readFileSync(this.stateFilePath, 'utf-8');
-            return JSON.parse(content);
+            const state = JSON.parse(content);
+            if (!state.donors) {
+                state.donors = {};
+            }
+            return state;
         }
         catch {
-            return { lastTxnId: null };
+            return { lastTxnId: null, donors: {} };
         }
     }
     saveState() {

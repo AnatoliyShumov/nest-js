@@ -4,8 +4,14 @@ import { TelegramService } from './telegram.service';
 import * as fs from 'fs';
 import * as path from 'path';
 
+interface DonorTransaction {
+  amount: number;
+  date: string;
+}
+
 interface State {
   lastTxnId: string | null;
+  donors: Record<string, DonorTransaction[]>;
 }
 
 @Injectable()
@@ -68,27 +74,53 @@ export class MonobankJarService implements OnModuleInit {
 
       for (const tx of newTxs) {
         if (tx.amount > 0) {
-          const message = [
+          // Оновлюємо інформацію про донатера
+          const donorName = tx.description || 'Анонім';
+          if (!this.state.donors[donorName]) {
+            this.state.donors[donorName] = [];
+          }
+          this.state.donors[donorName].push({
+            amount: tx.amount / 100,
+            date: new Date(tx.time * 1000).toLocaleString('uk-UA'),
+          });
+
+          // Підраховуємо статистику донатера
+          const donorTxs = this.state.donors[donorName];
+          const donorCount = donorTxs.length;
+          const donorTotal = donorTxs.reduce((sum, t) => sum + t.amount, 0);
+
+          const messageLines = [
             '💸 *Поповнення банки*',
             tx.description ? `👤 ${tx.description}` : '',
             `💰 Сума: ${tx.amount / 100} ₴`,
             `🕒 Час: ${new Date(tx.time * 1000).toLocaleString('uk-UA')}`,
             tx.comment ? `✍️ Коментар: ${tx.comment}` : '',
-            '',
-            `📅 За місяць: ${totalMonth.toFixed(2)} ₴`,
-            `📆 За цей тиждень: ${totalWeek.toFixed(2)} ₴`,
-            `📊 За минулий тиждень: ${totalLastWeek.toFixed(2)} ₴`,
-          ]
-            .filter(Boolean)
-            .join('\n');
+          ];
 
+          // Додаємо інформацію про повторні донати
+          if (donorCount >= 2) {
+            messageLines.push('');
+            messageLines.push(`🌟 *Повторний донатер!*`);
+            messageLines.push(`🔢 Кількість донатів: ${donorCount}`);
+            messageLines.push(`💎 Всього задонатив: ${donorTotal.toFixed(2)} ₴`);
+            messageLines.push('📋 Історія донатів:');
+            donorTxs.forEach((t, index) => {
+              messageLines.push(`  ${index + 1}. ${t.amount.toFixed(2)} ₴ - ${t.date}`);
+            });
+          }
+
+          messageLines.push('');
+          messageLines.push(`📅 За місяць: ${totalMonth.toFixed(2)} ₴`);
+          messageLines.push(`📆 За цей тиждень: ${totalWeek.toFixed(2)} ₴`);
+          messageLines.push(`📊 За минулий тиждень: ${totalLastWeek.toFixed(2)} ₴`);
+
+          const message = messageLines.filter(Boolean).join('\n');
           await this.sendWithRetry(message);
+          
+          // Зберігаємо стан після кожної транзакції
+          this.state.lastTxnId = tx.id;
+          this.saveState();
         }
-      }
-
-      if (newTxs.length > 0) {
-        this.state.lastTxnId = newTxs[newTxs.length - 1].id;
-        this.saveState();
       }
     } catch (err) {
       console.error('Монобанк помилка:', err.response?.data || err.message);
@@ -121,9 +153,14 @@ export class MonobankJarService implements OnModuleInit {
   private loadState(): State {
     try {
       const content = fs.readFileSync(this.stateFilePath, 'utf-8');
-      return JSON.parse(content);
+      const state = JSON.parse(content);
+      // Ініціалізуємо donors, якщо його немає
+      if (!state.donors) {
+        state.donors = {};
+      }
+      return state;
     } catch {
-      return { lastTxnId: null };
+      return { lastTxnId: null, donors: {} };
     }
   }
 
